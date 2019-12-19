@@ -18,7 +18,9 @@
 
 #include "helper_functions.h"
 
+using std::cos;
 using std::normal_distribution;
+using std::sin;
 using std::string;
 using std::vector;
 
@@ -33,22 +35,17 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
    */
   num_particles = 100;  // FIXME: Set the number of particles
 
-  std::default_random_engine gen; // Init random engine
-
   // Create normal (Gaussian) distributions for x, y, theta
   normal_distribution<double> dist_x(x, std[0]);
   normal_distribution<double> dist_y(y, std[1]);
   normal_distribution<double> dist_theta(theta, std[2]);
 
-  for (int i = 0; i < num_particles; ++i)
-  {
-    Particle p {
-      .id = i,
-      .x = dist_x(gen),
-      .y = dist_y(gen),
-      .theta = dist_theta(gen),
-      .weight = 1
-    };
+  for (int i = 0; i < num_particles; ++i) {
+    Particle p{.id = i,
+               .x = dist_x(gen),
+               .y = dist_y(gen),
+               .theta = dist_theta(gen),
+               .weight = 1};
 
     particles.push_back(p);
   }
@@ -57,12 +54,31 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 void ParticleFilter::prediction(double delta_t, double std_pos[],
                                 double velocity, double yaw_rate) {
   /**
-   * TODO: Add measurements to each particle and add random Gaussian noise.
+   * TODO: √ Add measurements to each particle and add random Gaussian noise.
    * NOTE: When adding noise you may find std::normal_distribution
    *   and std::default_random_engine useful.
    *  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
    *  http://www.cplusplus.com/reference/random/default_random_engine/
    */
+  for (Particle p : particles) {
+    float new_theta = p.theta + yaw_rate * delta_t;
+    float k = velocity / yaw_rate;
+
+    // Move particle according to motion model
+    p.x += k * (sin(new_theta) - sin(p.theta));
+    p.y += k * (cos(p.theta) - cos(new_theta));
+    p.theta = new_theta;
+
+    // Create normal distributions for x, y, theta
+    normal_distribution<double> dist_x(p.x, std_pos[0]);
+    normal_distribution<double> dist_y(p.y, std_pos[1]);
+    normal_distribution<double> dist_theta(p.theta, std_pos[2]);
+
+    // Add noise to particle
+    p.x = dist_x(gen);
+    p.y = dist_y(gen);
+    p.theta = dist_theta(gen);
+  }
 }
 
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
@@ -88,7 +104,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   Your particles are located according to the MAP'S coordinate system.
    *   You will need to transform between the two systems. Keep in mind that
    *   this transformation requires both rotation AND translation (but no
-   * scaling). The following is a good resource for the theory:
+   *   scaling). The following is a good resource for the theory:
    *   https://www.willamette.edu/~gorr/classes/GeneralGraphics/Transforms/transforms2d.htm
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
