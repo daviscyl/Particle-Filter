@@ -113,11 +113,27 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
 void ParticleFilter::resample() {
   /**
-   * TODO: Resample particles with replacement with probability proportional
+   * TODO: √ Resample particles with replacement with probability proportional
    *   to their weight.
    * NOTE: You may find std::discrete_distribution helpful here.
    *   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
    */
+  vector<Particle> new_particles;
+  std::discrete_distribution<> d(weights.begin(), weights.end());
+
+  for (int i = 0; i < num_particles; ++i)
+  {
+    Particle p_old = particles[d(gen)];
+    Particle p_new {
+      .id = i,
+      .x = p_old.x,
+      .y = p_old.y,
+      .theta = p_old.theta
+    };
+    new_particles.push_back(p_new);
+  }
+
+  particles = new_particles;
 }
 
 void ParticleFilter::SetAssociations(Particle& particle,
