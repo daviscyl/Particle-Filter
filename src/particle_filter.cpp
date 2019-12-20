@@ -49,6 +49,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 
     particles.push_back(p);
   }
+
+  is_initialized = true;
 }
 
 void ParticleFilter::prediction(double delta_t, double std_pos[],
@@ -60,7 +62,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
    *  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
    *  http://www.cplusplus.com/reference/random/default_random_engine/
    */
-  for (Particle p : particles) {
+  for (Particle& p : particles) {
     float new_theta = p.theta + yaw_rate * delta_t;
     float k = velocity / yaw_rate;
 
@@ -122,8 +124,9 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
   weights.clear();
+  double weight_sum = 0;
 
-  for (Particle p : particles) {
+  for (Particle& p : particles) {
     // 1. transform the observations into the map's coordinates
     vector<LandmarkObs> transformed_observations;
     p.associations.clear();
@@ -161,12 +164,32 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     // Gaussian probs
     p.weight = 1.0;
     for (auto obs : transformed_observations) {
-      p.weight *= gaussianProb(obs, predicted_observatons[obs.id], std_landmark);
+      p.weight *= multiv_gauss(obs, predicted_observatons[obs.id], std_landmark);
       p.associations.push_back(predicted_observatons[obs.id].id);
     }
 
     weights.push_back(p.weight);
+    weight_sum += p.weight;
   }
+  // std::cout << "weight sum: " << weight_sum << std::endl;
+
+  for (int i = 0; i < num_particles; ++i) {
+    // std::cout << "before normalization: " << std::endl
+    // << "weights list: " << weights[i] << "\t"
+    // << "particle weight: " << particles[i].weight << std::endl;
+    weights[i] /= weight_sum;
+    particles[i].weight /= weight_sum;
+    // std::cout << "after normalization: " << std::endl
+    // << "weights list: " << weights[i] << "\t"
+    // << "particle weight: " << particles[i].weight << std::endl;
+  }
+
+  weight_sum = 0;
+  for (auto w : weights) {
+    weight_sum += w;
+  }
+
+  // std::cout << "new weight sum: " << weight_sum << std::endl;
 }
 
 void ParticleFilter::resample() {

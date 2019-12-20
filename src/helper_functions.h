@@ -65,12 +65,12 @@ inline double dist(double x1, double y1, double x2, double y2) {
  * @output Probability of the observed landmark being the ground truth landmark
  * passed in.
  */
-inline double gaussianProb(LandmarkObs obs, LandmarkObs lmk,
+inline double multiv_gauss(LandmarkObs obs, LandmarkObs lmk,
                            double std_landmark[]) {
-  double error_x = pow((obs.x - lmk.x) / std_landmark[0], 2);
-  double error_y = pow((obs.y - lmk.y) / std_landmark[1], 2);
-  double std_xy = 2 * M_PI * std_landmark[0] * std_landmark[1];
-  return exp(-(error_x + error_y) / 2) / std_xy;
+  double exponent_x = pow((obs.x - lmk.x) / std_landmark[0], 2);
+  double exponent_y = pow((obs.y - lmk.y) / std_landmark[1], 2);
+  double gauss_norm = 2 * M_PI * std_landmark[0] * std_landmark[1];
+  return exp(-(exponent_x + exponent_y) / 2) / gauss_norm;
 }
 
 /**
