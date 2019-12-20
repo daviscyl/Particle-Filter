@@ -84,20 +84,32 @@ void ParticleFilter::prediction(double delta_t, double std_pos[],
 void ParticleFilter::dataAssociation(vector<LandmarkObs> predicted,
                                      vector<LandmarkObs>& observations) {
   /**
-   * TODO: Find the predicted measurement that is closest to each
+   * TODO: √ Find the predicted measurement that is closest to each
    *   observed measurement and assign the observed measurement to this
    *   particular landmark.
    * NOTE: this method will NOT be called by the grading code. But you will
    *   probably find it useful to implement this method and use it as a helper
    *   during the updateWeights phase.
    */
+  for (auto& o : observations) {
+    LandmarkObs* closest = NULL;
+
+    for (int i = 0; i < predicted.size(); ++i) {
+      LandmarkObs p = predicted[i];
+      if (closest == NULL ||
+          dist(p.x, p.y, o.x, o.y) < dist(closest->x, closest->y, o.x, o.y)) {
+        closest = &p;
+        o.id = i;
+      }
+    }
+  }
 }
 
 void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
                                    const vector<LandmarkObs>& observations,
                                    const Map& map_landmarks) {
   /**
-   * TODO: Update the weights of each particle using a mult-variate Gaussian
+   * TODO: √ Update the weights of each particle using a mult-variate Gaussian
    *   distribution. You can read more about this distribution here:
    *   https://en.wikipedia.org/wiki/Multivariate_normal_distribution
    * NOTE: The observations are given in the VEHICLE'S coordinate system.
@@ -109,6 +121,52 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
    *   and the following is a good resource for the actual equation to implement
    *   (look at equation 3.33) http://planning.cs.uiuc.edu/node99.html
    */
+  weights.clear();
+
+  for (Particle p : particles) {
+    // 1. transform the observations into the map's coordinates
+    vector<LandmarkObs> transformed_observations;
+    p.associations.clear();
+    p.sense_x.clear();
+    p.sense_y.clear();
+
+    double sinT = sin(p.theta);
+    double cosT = cos(p.theta);
+
+    for (auto obs : observations) {
+      LandmarkObs trans_obs;
+      trans_obs.x = p.x + cosT * obs.x - sinT * obs.y;
+      trans_obs.y = p.y + sinT * obs.x + cosT * obs.y;
+      transformed_observations.push_back(trans_obs);
+
+      p.sense_x.push_back(trans_obs.x);
+      p.sense_y.push_back(trans_obs.y);
+    }
+
+    // 2. find all landmards within sensor range to make the list of predicted
+    // landmark observations
+    vector<LandmarkObs> predicted_observatons;
+
+    for (auto lm : map_landmarks.landmark_list) {
+      if (dist(p.x, p.y, lm.x_f, lm.y_f) < sensor_range) {
+        LandmarkObs pred_obs{.id = lm.id_i, .x = lm.x_f, .y = lm.y_f};
+        predicted_observatons.push_back(pred_obs);
+      }
+    }
+
+    // 3. find each landmark's closest observed point
+    dataAssociation(predicted_observatons, transformed_observations);
+
+    // 4. update the weights (particle & weights list) by multiplying the 2D
+    // Gaussian probs
+    p.weight = 1.0;
+    for (auto obs : transformed_observations) {
+      p.weight *= gaussianProb(obs, predicted_observatons[obs.id], std_landmark);
+      p.associations.push_back(predicted_observatons[obs.id].id);
+    }
+
+    weights.push_back(p.weight);
+  }
 }
 
 void ParticleFilter::resample() {
@@ -121,15 +179,9 @@ void ParticleFilter::resample() {
   vector<Particle> new_particles;
   std::discrete_distribution<> d(weights.begin(), weights.end());
 
-  for (int i = 0; i < num_particles; ++i)
-  {
+  for (int i = 0; i < num_particles; ++i) {
     Particle p_old = particles[d(gen)];
-    Particle p_new {
-      .id = i,
-      .x = p_old.x,
-      .y = p_old.y,
-      .theta = p_old.theta
-    };
+    Particle p_new{.id = i, .x = p_old.x, .y = p_old.y, .theta = p_old.theta};
     new_particles.push_back(p_new);
   }
 
