@@ -70,7 +70,7 @@ inline double multiv_gauss(LandmarkObs obs, LandmarkObs lmk,
   double exponent_x = pow((obs.x - lmk.x) / std_landmark[0], 2);
   double exponent_y = pow((obs.y - lmk.y) / std_landmark[1], 2);
   double gauss_norm = 2 * M_PI * std_landmark[0] * std_landmark[1];
-  return exp(-(exponent_x + exponent_y) / 2) / gauss_norm;
+  return exp(-(exponent_x + exponent_y) / 2) / gauss_norm + 1E-20;
 }
 
 /**
